@@ -1,0 +1,5 @@
+.idea
+cmake-build-debug
+sma.ini
+logger.env
+flatbuffers/include
