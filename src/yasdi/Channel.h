@@ -1,6 +1,6 @@
 #pragma once
 
-#include <mutex>
+#include <shared_mutex>
 #include <smadef.h>
 #include <string>
 
@@ -10,11 +10,11 @@ namespace yasdi {
 
     class Channel {
     public:
-        explicit Channel(yasdi::Device &device, DWORD handle) noexcept;
+        explicit Channel(DWORD handle) noexcept;
         Channel(const Channel &) = delete;
         Channel &operator=(const Channel &) = delete;
         ~Channel() = default;
-        bool update(DWORD maxAgeSeconds);
+        bool update(Device &device, DWORD maxAgeSeconds);
         double value() const;
         std::string valueText() const;
         bool isUpdating() const;
@@ -33,7 +33,6 @@ namespace yasdi {
         DWORD _timestamp;
         bool _updating;
         bool _valueValid;
-        Device &_device;
-        std::mutex _mutex;
+        mutable std::shared_mutex _mutex;
     };
 }

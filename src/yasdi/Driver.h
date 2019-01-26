@@ -1,6 +1,5 @@
 #pragma once
 
-#include <mutex>
 #include <smadef.h>
 #include <string>
 
@@ -18,6 +17,5 @@ namespace yasdi {
         DWORD _id;
         std::string _name;
         bool _online;
-        std::mutex _mutex;
     };
 }

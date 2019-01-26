@@ -17,7 +17,6 @@ const bool Driver::isOnline() const {
 }
 
 const bool Driver::setStatus(bool value) {
-    // std::lock_guard<std::mutex> lock(_mutex);
     if (value) {
         _online = (yasdiMasterSetDriverOnline(_id) == TRUE);
     } else {

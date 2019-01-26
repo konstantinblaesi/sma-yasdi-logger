@@ -32,7 +32,6 @@ bool Master::init() {
     addEventListeners();
     yasdiMasterGetDriver(driverIDs, maxDrivers);
     for (auto i = 0; i < driversCount; i++) {
-        // c++11 doesn't have make_unique
         unique_ptr<Driver> driver = std::make_unique<Driver>(driverIDs[i]);
         driver->setStatus(true);
         _drivers.push_back(move(driver));
@@ -54,7 +53,9 @@ bool Master::start() {
 }
 
 void Master::stop() {
-    stopDeviceDetection();
+    if (this->isDetectingDevices()) {
+        stopDeviceDetection();
+    }
     for (auto &driver: _drivers) {
         driver->setStatus(false);
     }
@@ -69,14 +70,10 @@ void Master::addEventListeners() {
 }
 
 void Master::startDeviceDetection() {
-    assert(_initialized);
-    assert(!_detectingDevices);
-
     int iErrorCode = DoStartDeviceDetection(_config.expectedDevices(), false);
-    // std::lock_guard<std::mutex> lock(_mutex);
     switch (iErrorCode) {
         case YE_DEV_DETECT_IN_PROGRESS:
-            cout << "SMA Logger --- Master: Cannot detect devices, because device detection is in progress."
+            cout << "SMA Logger --- Master: Cannot detect devices, because detection is in progress."
                  << endl;
             // TODO should never happen?
             _detectingDevices = true;
@@ -99,16 +96,14 @@ void Master::startDeviceDetection() {
 }
 
 void Master::stopDeviceDetection() {
-    assert(_detectingDevices);
-
+//    assert(_detectingDevices);
     cout << "SMA Logger --- " << "Stopping device detection." << endl;
-    // std::lock_guard<std::mutex> lock(_mutex);
     _detectingDevices = (YE_OK == DoStopDeviceDetection());
+//    assert(!_detectingDevices);
 }
 
 void Master::onDeviceDetectionFinished() {
     cout << "SMA Logger --- Master: Device detection finished." << endl;
-    // std::lock_guard<std::mutex> lock(_mutex);
     _detectingDevices = false;
     //updateDevices(_config.updateIntervalSeconds());
 }
@@ -141,8 +136,7 @@ void Master::onDeviceDetected(TYASDIDetectionSub deviceEvent, DWORD deviceHandle
         case YASDI_EVENT_DEVICE_SEARCH_END:
             onDeviceDetectionFinished();
             break;
-        case YASDI_EVENT_DOWNLOAD_CHANLIST: {
-        }
+        case YASDI_EVENT_DOWNLOAD_CHANLIST:
             break;
         default:
             cerr << "SMA Logger --- Master: Unknown YASDI device event." << endl;
@@ -152,67 +146,69 @@ void Master::onDeviceDetected(TYASDIDetectionSub deviceEvent, DWORD deviceHandle
 
 void Master::onChannelValueReceived(DWORD channelHandle, DWORD deviceHandle, double valueNumber,
                                     char *valueText, int errorCode) {
-    assert(_initialized);
-    assert(this->isUpdatingDevices());
+//    assert(_initialized);
+    //assert(this->isUpdatingDevices());
     auto device = find_if(_devices.begin(), _devices.end(), [deviceHandle](const shared_ptr<Device> &device) {
         return deviceHandle == device->handle();
     });
-    assert(device != _devices.end());
+//    assert(device != _devices.end());
     (*device)->onChannelValueReceived(channelHandle, valueNumber, valueText, errorCode);
 }
 
 void Master::onDeviceUpdated(const Device &device) {
-    assert(_initialized);
-    assert(this->isUpdatingDevices());
-    {
-        // std::lock_guard<std::mutex> lock(_mutex);
-        _deviceUpdatesRemaining--;
-    }
+//    assert(_initialized);
+    _deviceUpdatesRemaining--;
+    // doesn't make sense for last updated event
+    //assert(this->isUpdatingDevices());
     _mqttClient.publish(device);
     if (!this->isUpdatingDevices()) {
-        _updateEnd = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(_updateEnd - _updateBegin).count();
-        cout << "SMA Logger --- Master: Device update finished after "
-             << duration << " milliseconds." << endl;
-        auto sleep = max(static_cast<long>((_config.updateIntervalSeconds() * 1000) - duration), static_cast<long>(0));
-        cout << "SMA Logger --- Master: Waiting "
-             << sleep << " milliseconds until next update." << endl;
-        this_thread::sleep_for(chrono::milliseconds(sleep));
-        updateDevices(_config.updateIntervalSeconds());
+        this->onDeviceUpdatesFinished();
     }
+}
+
+void Master::onDeviceUpdatesFinished() {
+    _updateEnd = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(_updateEnd - _updateBegin).count();
+    cout << "SMA Logger --- Master: Updating devices finished after "
+         << duration << " milliseconds." << endl;
+    auto sleep = max(static_cast<long>((_config.updateIntervalSeconds() * 1000) - duration), static_cast<long>(0));
+    cout << "SMA Logger --- Master: Waiting "
+         << sleep << " milliseconds until next update." << endl;
+    this_thread::sleep_for(chrono::milliseconds(sleep));
+    this->removeOfflineDevices();
+    updateDevices(_config.updateIntervalSeconds());
+}
+
+void Master::removeOfflineDevices() {
+    auto removed = _devices.erase(remove_if(_devices.begin(), _devices.end(), [&](const shared_ptr<Device> device) {
+        return !device->isOnline();
+    }), _devices.end());
+    // assert(removed != _devices.end());
 }
 
 void Master::onDeviceOffline(const Device &device) {
     cout << "SMA Logger --- "
          << "Master '" << device.name() << "' went offline.";
-    // std::lock_guard<std::mutex> lock(_mutex);
-    auto removed = _devices.erase(remove_if(_devices.begin(), _devices.end(), [&device](const shared_ptr<Device> d) {
-        return d->handle() == device.handle();
-    }), _devices.end());
-    assert(removed != _devices.end());
 }
 
 void Master::updateDevices(DWORD maxAgeSeconds) {
-    // std::lock_guard<std::mutex> lock(_mutex);
-    assert(!isUpdatingDevices());
+//    assert(!isUpdatingDevices());
+    if (_devices.empty()) {
+        return;
+    }
     cout << "SMA Logger --- Master: Updating " << _devices.size()
          << " devices requesting a max channel value age of " << maxAgeSeconds
          << " seconds." << endl;
-    if (!_devices.empty()) {
-        _deviceUpdatesRemaining = _devices.size();
-        _updateBegin = std::chrono::high_resolution_clock::now();
-        for (const auto &device: _devices) {
-            assert(device->isOnline());
-//            if (!device->isOnline()) {
-//                continue;
-//            }
-            device->updateChannels(maxAgeSeconds);
-        }
+    _updateBegin = std::chrono::high_resolution_clock::now();
+    _deviceUpdatesRemaining = _devices.size();
+    for (const auto &device: _devices) {
+//        assert(device->isOnline());
+        device->updateChannels(maxAgeSeconds);
     }
 }
 
 bool Master::isUpdatingDevices() const {
-    return _deviceUpdatesRemaining != 0;
+    return _deviceUpdatesRemaining > 0;
 }
 
 bool Master::isDetectingDevices() const {

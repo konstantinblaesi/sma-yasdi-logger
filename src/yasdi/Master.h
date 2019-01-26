@@ -1,11 +1,13 @@
 #pragma once
 
+#include <atomic>
 #include <chrono>
+#include <libyasdimaster.h>
+#include <map>
 #include <memory>
 #include <string>
-#include <map>
+#include <shared_mutex>
 #include <vector>
-#include <libyasdimaster.h>
 #include "Driver.h"
 #include "../delegates.h"
 
@@ -19,6 +21,7 @@ namespace mqtt {
 
 namespace yasdi {
     class Channel;
+
     class Device;
 
     class Master {
@@ -36,11 +39,12 @@ namespace yasdi {
         bool isUpdatingDevices() const;
         bool isDetectingDevices() const;
         bool isInitialized() const;
-        void publishChannel(const Device &device, const yasdi::Channel& channel);
+        void removeOfflineDevices();
         void onDeviceDetected(TYASDIDetectionSub deviceEvent, DWORD deviceHandle);
         void onChannelValueReceived(DWORD channelHandle, DWORD deviceHandle, double value,
                                     char *valueText, int errorCode);
         void onDeviceUpdated(const Device &device);
+        void onDeviceUpdatesFinished();
         void onDeviceOffline(const Device &device);
     private:
         bool init();
@@ -48,13 +52,13 @@ namespace yasdi {
         void onDeviceDetectionFinished();
         const config::Configuration &_config;
         bool _initialized;
-        bool _detectingDevices;
+        std::atomic_bool _detectingDevices;
         std::vector<std::unique_ptr<Driver>> _drivers;
         std::vector<std::shared_ptr<Device>> _devices;
-        size_t _deviceUpdatesRemaining;
+        std::atomic_size_t _deviceUpdatesRemaining;
         std::chrono::high_resolution_clock::time_point _updateBegin;
         std::chrono::high_resolution_clock::time_point _updateEnd;
         const mqtt::MqttClient &_mqttClient;
-        std::mutex _mutex;
+        mutable std::shared_mutex _deviceUpdatesMutex;
     };
 }

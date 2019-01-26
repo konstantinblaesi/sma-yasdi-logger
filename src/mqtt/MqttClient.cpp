@@ -41,6 +41,7 @@ const bool MqttClient::init() {
                 break;
         }
         mosquitto_username_pw_set(_mosquittoClient, _config.mqttUsername().c_str(), _config.mqttPassword().c_str());
+        // @TODO callbacks do not work?! mosquitto bug?!
         //mosquitto_connect_callback_set(_mosquittoClient, callbacks::onConnect);
         mosquitto_connect_with_flags_callback_set(_mosquittoClient, callbacks::onConnectWithFlags);
         mosquitto_disconnect_callback_set(_mosquittoClient, callbacks::onDisconnect);
@@ -56,7 +57,7 @@ const bool MqttClient::init() {
 }
 
 const bool MqttClient::connect() {
-    assert(_initialized);
+//    assert(_initialized);
 
     cout << "SMA Logger --- MqttClient: trying to connect, waiting ..." << endl;
     bool success = (MOSQ_ERR_SUCCESS == mosquitto_connect_async(
