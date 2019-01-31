@@ -9,9 +9,8 @@ namespace yasdi {
         explicit Driver(DWORD id) noexcept;
         Driver(const Driver&) = delete;
         Driver& operator=(const Driver&) = delete;
-        ~Driver() {};
+        ~Driver() noexcept;
         const DWORD id() const;
-        const bool setStatus(bool value);
         const bool isOnline() const;
     private:
         DWORD _id;

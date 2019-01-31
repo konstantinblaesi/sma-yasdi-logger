@@ -30,6 +30,18 @@ void handleError(bool failed, const string &msg) {
 }
 
 void onSignal(int signal) {
+    string signalStr;
+    switch(signal) {
+        case SIGTERM:
+            signalStr = "SIGTERM";
+            break;
+        case SIGINT:
+            signalStr = "SIGINT";
+            break;
+        default:
+            signalStr = to_string(signal);
+            break;
+    }
     cout << "SMA Logger --- " << "Received sigal " << signal << "." << endl;
     cout << "SMA Logger --- " << "Shutting down." << endl;
     yMaster->stop();

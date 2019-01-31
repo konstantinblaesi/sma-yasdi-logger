@@ -2,6 +2,7 @@
 #include <libyasdimaster.h>
 #include <iostream>
 #include <algorithm>
+#include <cstring>
 #include "Channel.h"
 #include "Device.h"
 #include "Master.h"
@@ -17,22 +18,32 @@ Device::Device(yasdi::Master &master, DWORD deviceHandle) noexcept
           _channelUpdatesRemaining(0) {
 }
 
+Device::~Device() noexcept {
+    switch (RemoveDevice(_handle)) {
+        case YE_UNKNOWN_HANDLE:
+            break;
+        case YE_OK:
+            break;
+    }
+}
+
 void Device::init() {
     bool initSuccess = true;
-    constexpr unsigned short maxLen = 64;
-    char name[maxLen];
-    int rc = GetDeviceName(_handle, name, maxLen);
-    // this assert fails wtf?! should be the string length, see YASDI docs
-    //assert(rc > 0);
-    _name = name;
+    constexpr unsigned short maxLength = 64;
+    char buffer[maxLength] = {0};
+    int rc = GetDeviceName(_handle, buffer, maxLength);
+    //assert(rc == YE_OK);
+    _name = buffer;
     _name.shrink_to_fit();
     DWORD sn;
+    memset(buffer, 0, maxLength);
     rc = GetDeviceSN(_handle, &sn);
 //    assert(YE_OK == rc);
     _serialNumber = sn;
-    rc = GetDeviceType(_handle, name, maxLen);
+    memset(buffer, 0, maxLength);
+    rc = GetDeviceType(_handle, buffer, maxLength);
 //    assert(YE_OK == rc);
-    _type = name;
+    _type = buffer;
     _type.shrink_to_fit();
     constexpr unsigned short maxChannels = 50;
     DWORD channelHandles[maxChannels];
@@ -45,34 +56,55 @@ void Device::init() {
     _initialized = initSuccess;
 }
 
-void Device::updateChannels(DWORD maxAgeSeconds) {
+void Device::update(DWORD maxAgeSeconds) {
+    _channelUpdatesRemaining = _channels.size();
     for (auto &channel : _channels) {
-        if (channel->update(*this, maxAgeSeconds)) {
-            _channelUpdatesRemaining++;
-        }
+        channel->update(*this, maxAgeSeconds);
     }
 }
 
 void Device::onChannelValueReceived(DWORD channelHandle, double value, char *valueText, int errorCode) {
     //assert(this->isUpdating());
+//    cout << "SMA Logger --- Device '" << this->name() << "': channel value received." << endl;
     auto channel = find_if(_channels.begin(), _channels.end(), [channelHandle](shared_ptr<Channel> const &channel) {
         return channel->handle() == channelHandle;
     });
-//    assert(channel != _channels.end());
-    (*channel)->onChannelValueReceived(*this, value, valueText, errorCode);
-}
-
-void Device::onChannelUpdated(const Channel &channel) {
-    _channelUpdatesRemaining--;
-    if (!this->isUpdating()) {
-        _master.onDeviceUpdated(*this);
+    if (channel != _channels.end()) {
+        (*channel)->onChannelValueReceived(*this, value, valueText, errorCode);
     }
 }
 
-void Device::onChannelTimeout(const Channel &channel) {
-    if (_online) {
-        _online = false;
-        _master.onDeviceOffline(*this);
+/**
+ * Called when the async update of a channel is finished
+ * @param channel
+ * @param channelUpdateResult
+ */
+void Device::onChannelUpdated(const Channel &channel, ChannelUpdate channelUpdateResult) {
+    _channelUpdatesRemaining--;
+//    cout << "SMA Logger --- Device '" << this->name() << "': "
+//         << _channelUpdatesRemaining << " channel updates remaining" << endl;
+    DeviceUpdate deviceUpdateResult;
+    switch (channelUpdateResult) {
+        case ChannelUpdate::TIMEOUT:
+            if (_online) {
+                // mark the device as offline on the first channel timeout event
+                // this happens mostly when the inverter is shutting down in the evening
+                _online = false;
+            }
+            deviceUpdateResult = DeviceUpdate::OFFLINE;
+            break;
+        case ChannelUpdate::FAILURE:
+            deviceUpdateResult = DeviceUpdate::FAILURE;
+            break;
+        case ChannelUpdate::SUCCESS:
+            deviceUpdateResult = DeviceUpdate::SUCCESS;
+            break;
+    }
+    // notify master once all channels are updated
+    // only the last channel event is presented to the master
+    // state of individual channels is kept in the channel class
+    if (!this->isUpdating()) {
+        _master.onDeviceUpdated(*this, deviceUpdateResult);
     }
 }
 

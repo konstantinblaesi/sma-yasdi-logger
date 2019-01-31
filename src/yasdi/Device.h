@@ -1,12 +1,11 @@
 #pragma once
 
-#include <atomic>
-#include <vector>
 #include <memory>
-#include <shared_mutex>
 #include <string>
 #include <smadef.h>
-#include <atomic>
+#include <vector>
+
+#include "Channel.h"
 
 namespace mqtt {
     class MqttClient;
@@ -17,18 +16,24 @@ namespace yasdi {
 
     class Channel;
 
+    enum class DeviceUpdate {
+        SUCCESS,
+        FAILURE,
+        OFFLINE
+    };
+
     class Device {
     public:
         explicit Device(yasdi::Master &master, DWORD deviceHandle) noexcept;
+        Device() = delete;
         Device(const Device &) = delete;
         Device &operator=(const Device &) = delete;
-        ~Device() = default;
+        ~Device() noexcept;
         void init();
-        void updateChannels(DWORD maxAgeSeconds);
-        void onChannelTimeout(const Channel &channel);
+        void update(DWORD maxAgeSeconds);
         void onChannelValueReceived(DWORD channelHandle, double value,
                                     char *valueText, int errorCode);
-        void onChannelUpdated(const Channel &channel);
+        void onChannelUpdated(const Channel &channel, const ChannelUpdate channelUpdateResult);
         const bool isOnline() const;
         const DWORD handle() const;
         const std::string name() const;
@@ -42,10 +47,9 @@ namespace yasdi {
         std::string _name;
         std::string _type;
         DWORD _serialNumber;
-        std::atomic_bool _online;
+        bool _online;
         bool _initialized;
         std::vector<std::shared_ptr<Channel>> _channels;
-        std::atomic_size_t _channelUpdatesRemaining;
-        mutable std::shared_mutex _mutex;
+        size_t _channelUpdatesRemaining;
     };
 }

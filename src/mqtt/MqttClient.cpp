@@ -4,6 +4,7 @@
 #include "../yasdi/Device.h"
 #include "MqttClient.h"
 #include "callbacks.h"
+#include "../flatbuffers/deviceUpdate.h"
 #include "../config/Configuration.h"
 #include "../../flatbuffers/include/device_update_generated.h"
 
@@ -72,17 +73,36 @@ const bool MqttClient::connect() {
 }
 
 void MqttClient::publish(const Device &device) const {
+    cout << "SMA Logger --- MqttClient: publish called for device '" << device.name() << "'." << endl;
     if (_connected) {
+        using namespace device::update;
+        sortedChannels_t sortedChannels = getChannelsByTimestamp(device);
         FlatBufferBuilder fbb;
-        vector<Offset<SpotChannel>> spotChannels;
-        for (const auto &channel: device.channels()) {
-            spotChannels.push_back(CreateSpotChannelDirect(
+        vector<Offset<SpotChannels>> spotChannels;
+        for (const auto &[timestamp, channels]: sortedChannels) {
+            vector<Offset<SpotChannelNumeric>> spotChannelsNumeric;
+            vector<Offset<SpotChannelText>> spotChannelsText;
+            for (const auto &channel: channels) {
+                if (channel->isNumeric()) {
+                    spotChannelsNumeric.push_back(CreateSpotChannelNumeric(
+                            fbb,
+                            fbb.CreateString(channel->name()),
+                            channel->value(),
+                            fbb.CreateString(channel->unit())
+                    ));
+                } else {
+                    spotChannelsText.push_back(CreateSpotChannelText(
+                            fbb,
+                            fbb.CreateString(channel->name()),
+                            fbb.CreateString(channel->valueText()
+                            )));
+                }
+            }
+            spotChannels.push_back(CreateSpotChannels(
                     fbb,
-                    channel->name().c_str(),
-                    channel->value(),
-                    channel->valueText().c_str(),
-                    channel->unit().c_str(),
-                    channel->timestamp()
+                    timestamp,
+                    fbb.CreateVector(spotChannelsNumeric),
+                    fbb.CreateVector(spotChannelsText)
             ));
         }
         auto deviceUpdate = CreateDeviceUpdate(
