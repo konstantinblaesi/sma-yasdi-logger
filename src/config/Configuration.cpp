@@ -21,6 +21,7 @@ Configuration::Configuration() noexcept {
 void Configuration::init() {
     _expectedDevices = static_cast<unsigned short>(stoi(getenv("EXPECTED_DEVICES")));
     _restartDetectionIfOnline = static_cast<unsigned short>(stoi(getenv("RESTART_DETECTION_IF_ONLINE")));
+    _updateValueMaxAgeSeconds = static_cast<unsigned short>(stoi(getenv("UPDATE_VALUE_MAX_AGE_SECONDS")));
     _updateIntervalSeconds = static_cast<unsigned short>(stoi(getenv("UPDATE_INTERVAL_SECONDS")));
     _yasdiIniFilePath = getenv("YASDI_INI_FILE_PATH");
 
@@ -38,6 +39,10 @@ const unsigned short Configuration::expectedDevices() const {
 
 const unsigned short Configuration::restartDetectionIfOnline() const {
     return _restartDetectionIfOnline;
+}
+
+unsigned short Configuration::updateValueMaxAgeSeconds() const {
+    return _updateValueMaxAgeSeconds;
 }
 
 const unsigned short Configuration::updateIntervalSeconds() const {

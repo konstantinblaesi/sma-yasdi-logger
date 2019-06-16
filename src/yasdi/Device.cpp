@@ -19,12 +19,7 @@ Device::Device(yasdi::Master &master, DWORD deviceHandle) noexcept
 }
 
 Device::~Device() noexcept {
-    switch (RemoveDevice(_handle)) {
-        case YE_UNKNOWN_HANDLE:
-            break;
-        case YE_OK:
-            break;
-    }
+//    RemoveDevice(_handle);
 }
 
 void Device::init() {
@@ -64,8 +59,8 @@ void Device::update(DWORD maxAgeSeconds) {
 }
 
 void Device::onChannelValueReceived(DWORD channelHandle, double value, char *valueText, int errorCode) {
-    //assert(this->isUpdating());
-//    cout << "SMA Logger --- Device '" << this->name() << "': channel value received." << endl;
+    //assert(isUpdating());
+//    cout << "SMA Logger --- Device '" << name() << "': channel value received." << endl;
     auto channel = find_if(_channels.begin(), _channels.end(), [channelHandle](shared_ptr<Channel> const &channel) {
         return channel->handle() == channelHandle;
     });
@@ -81,7 +76,7 @@ void Device::onChannelValueReceived(DWORD channelHandle, double value, char *val
  */
 void Device::onChannelUpdated(const Channel &channel, ChannelUpdate channelUpdateResult) {
     _channelUpdatesRemaining--;
-//    cout << "SMA Logger --- Device '" << this->name() << "': "
+//    cout << "SMA Logger --- Device '" << name() << "': "
 //         << _channelUpdatesRemaining << " channel updates remaining" << endl;
     DeviceUpdate deviceUpdateResult;
     switch (channelUpdateResult) {
@@ -103,7 +98,7 @@ void Device::onChannelUpdated(const Channel &channel, ChannelUpdate channelUpdat
     // notify master once all channels are updated
     // only the last channel event is presented to the master
     // state of individual channels is kept in the channel class
-    if (!this->isUpdating()) {
+    if (!isUpdating()) {
         _master.onDeviceUpdated(*this, deviceUpdateResult);
     }
 }
@@ -117,7 +112,7 @@ const bool Device::isUpdating() const {
 }
 
 const bool Device::isOnline() const {
-    return _initialized && _online;
+    return _online; // TODO check initialized?
 }
 
 const string Device::name() const {

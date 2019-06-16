@@ -38,13 +38,13 @@ const bool Channel::update(Device &device, DWORD maxAgeSeconds) {
             device.onChannelUpdated(*this, ChannelUpdate::FAILURE);
             break;
     }
-    return this->isUpdating();
+    return isUpdating();
 }
 
 void Channel::onChannelValueReceived(Device &device, const double value, const char *valueText, const int errorCode) {
 //    cout << "SMA Logger --- Channel: Device '"
 //         << device.name() << "' received value for channel '"
-//         << this->name() << "'." << endl;
+//         << name() << "'." << endl;
     // default value
     ChannelUpdate updateResult = ChannelUpdate::FAILURE;
     switch (errorCode) {
@@ -59,7 +59,7 @@ void Channel::onChannelValueReceived(Device &device, const double value, const c
         case YE_OK:
             _value = value;
             _valueText = valueText;
-            _timestamp = GetChannelValueTimeStamp(this->handle(), device.handle());
+            _timestamp = GetChannelValueTimeStamp(handle(), device.handle());
             _valueValid = true;
             updateResult = ChannelUpdate::SUCCESS;
             break;

@@ -22,6 +22,7 @@ namespace config {
         const std::string &mqttUsername() const;
         const std::string &mqttPassword() const;
         void init();
+        unsigned short updateValueMaxAgeSeconds() const;
 
         //
 
@@ -34,6 +35,7 @@ namespace config {
     private:
         unsigned short _expectedDevices;
         unsigned short _restartDetectionIfOnline;
+        unsigned short _updateValueMaxAgeSeconds;
         unsigned short _updateIntervalSeconds;
         std::string _yasdiIniFilePath;
 

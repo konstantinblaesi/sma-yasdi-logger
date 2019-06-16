@@ -51,7 +51,7 @@ bool Master::start() {
 }
 
 void Master::stop() {
-    if (this->isDetectingDevices()) {
+    if (isDetectingDevices()) {
         stopDeviceDetection();
     }
     _drivers.clear();
@@ -113,7 +113,7 @@ void Master::onDeviceDetected(TYASDIDetectionSub deviceEvent, DWORD deviceHandle
             _devices.push_back(device);
             if (!isUpdatingDevices()) {
                 // start update loop once as soon as the first device is online
-                updateDevices(_config.updateIntervalSeconds());
+                updateDevices(_config.updateValueMaxAgeSeconds());
             }
         }
             break;
@@ -171,8 +171,8 @@ void Master::onDeviceUpdated(const Device &device, DeviceUpdate updateResult) {
             break;
     }
     cout << "SMA Logger --- Master: " << _deviceUpdatesRemaining << " device updates remaining" << endl;
-    if (!this->isUpdatingDevices()) {
-        this->onDeviceUpdatesFinished();
+    if (!isUpdatingDevices()) {
+        onDeviceUpdatesFinished();
     }
 }
 
@@ -185,8 +185,8 @@ void Master::onDeviceUpdatesFinished() {
     cout << "SMA Logger --- Master: Waiting "
          << delay << " milliseconds until next update." << endl;
     this_thread::sleep_for(chrono::milliseconds(delay));
-    this->removeOfflineDevices();
-    updateDevices(_config.updateIntervalSeconds());
+    removeOfflineDevices();
+    updateDevices(_config.updateValueMaxAgeSeconds());
 }
 
 void Master::removeOfflineDevices() {
@@ -195,10 +195,8 @@ void Master::removeOfflineDevices() {
         return !device->isOnline();
     }), _devices.end());
     auto devicesRemoved = sizeBefore - _devices.size();
-    if (devicesRemoved > 0) {
-        cout << "SMA Logger --- Master: " << devicesRemoved << " offline devices were removed." << endl;
-        cout << "SMA Logger --- Master: " << _devices.size() << " online devices are remaining." << endl;
-    }
+    cout << "SMA Logger --- Master: " << devicesRemoved << " offline devices were removed." << endl;
+    cout << "SMA Logger --- Master: " << _devices.size() << " online devices are remaining." << endl;
 }
 
 void Master::updateDevices(DWORD maxAgeSeconds) {

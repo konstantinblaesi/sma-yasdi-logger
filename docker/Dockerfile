@@ -24,7 +24,8 @@ RUN apk update && apk add --no-cache \
     libstdc++ \
     curl \
     mosquitto-libs \
-    mosquitto-dev
+    mosquitto-dev \
+    gdb
 
 RUN apk --no-cache add --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \
     flatbuffers \
@@ -43,7 +44,7 @@ RUN cd /usr/src \
     && patch -p1 < $LOGGER_SRC/docker/libc_musl.patch \
     && mkdir $YASDI_SRC/projects/generic-cmake/build \
     && cd $YASDI_SRC/projects/generic-cmake/build \
-    && cmake -D CMAKE_INSTALL_PREFIX=/usr -D CMAKE_C_FLAGS="-DLIBC_MUSL" .. \
+    && cmake -D CMAKE_INSTALL_PREFIX=/usr -D CMAKE_C_FLAGS="-ggdb -DLIBC_MUSL" -D YASDI_DEBUG_OUTPUT=0 .. \
     && make -j$(getconf _NPROCESSORS_ONLN) \
     && make install
 
@@ -55,7 +56,7 @@ WORKDIR $LOGGER_SRC
 RUN ./build.sh
 RUN mkdir $LOGGER_SRC/build
 WORKDIR $LOGGER_SRC/build
-RUN cmake -D CMAKE_INSTALL_PREFIX=/usr .. \
+RUN cmake -D CMAKE_CXX_FLAGS="-ggdb" -D CMAKE_INSTALL_PREFIX=/usr .. \
     && make -j$(getconf _NPROCESSORS_ONLN) \
     && make install \
     && rm -rf $YASDI_SRC \

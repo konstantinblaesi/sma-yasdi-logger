@@ -58,6 +58,7 @@ int main(int argc, char **argv) {
 
     cout << "SMA Logger --- Configuration: Expected devices '" << config.expectedDevices() << "'." << endl;
     cout << "SMA Logger --- Configuration: Restart device detection if online devices count '" << config.restartDetectionIfOnline() << "'." << endl;
+    cout << "SMA Logger --- Configuration: Channel max value age in seconds '" << config.updateValueMaxAgeSeconds() << "'." << endl;
     cout << "SMA Logger --- Configuration: Channel update interval in seconds '" << config.updateIntervalSeconds() << "'." << endl;
     cout << "SMA Logger --- Configuration: YASDI ini path '" << config.yasdiIniFilePath() << "'." << endl;
 

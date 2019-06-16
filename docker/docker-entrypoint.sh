@@ -6,6 +6,7 @@ source /etc/sma_logger/logger.env
 export EXPECTED_DEVICES
 export RESTART_DETECTION_IF_ONLINE
 export UPDATE_INTERVAL_SECONDS
+export UPDATE_VALUE_MAX_AGE_SECONDS
 export YASDI_INI_FILE_PATH
 
 export MQTT_HOST
